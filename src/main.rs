@@ -119,22 +119,31 @@ async fn main() {
             let response: HtmlResponse = serde_json::from_str(&arg).unwrap();
             match response.r#type {
                 "perform_switch" => {
-                    webview.eval("setState('install_ip')").unwrap();
+                    let is_switched = response.args[2] == "true";
+
+                    if is_switched {
+                        webview.eval("setState('uninstall_ip')").unwrap();
+                    } else {
+                        webview.eval("setState('install_ip')").unwrap();
+                    }
                     
-                    if !utils::host_run_as_admin(response.args[2] != "true") {
+                    
+                    if !utils::host_run_as_admin(!is_switched) {
                         webview.eval("showNotification('error_install_ip')").unwrap();
                         
                         return Ok(())
                     }
                     
-                    webview.eval("setState('install_cert')").unwrap();
+                    if !is_switched {
+                        webview.eval("setState('install_cert')").unwrap();
 
-                    if !utils::cert_run_as_admin() {
-                        webview.eval("showNotification('error_install_cert')").unwrap();
-
-                        return Ok(())
+                        if !utils::cert_run_as_admin() {
+                            webview.eval("showNotification('error_install_cert')").unwrap();
+    
+                            return Ok(())
+                        }
                     }
-
+                
                     webview.eval(format!("callbackCheckStatus({})", switcher::is_switched().unwrap()).as_str()).unwrap();
                     
                     webview.eval("showNotification('ok')").unwrap();
