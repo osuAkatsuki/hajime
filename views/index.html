@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Switcher</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
+        * { margin: 0; padding: 0; }
+
+        * { font-family: 'Roboto', sans-serif; }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+        }
+
+        body, #loadingSpin {
+            width: 100%;
+            height: 100%;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            background: url(https://images.pexels.com/photos/1252869/pexels-photo-1252869.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=500);
+            background-size: cover;
+        }
+
+        #status {
+            color: white;
+        }
+
+        #loader {
+            position: absolute;
+
+            width: 300;
+            height: 300;
+            pointer-events: none;
+        }
+
+        #loader circle {
+            stroke-width: 3px;
+            stroke-dasharray: 100px;
+            stroke-dashoffset: 10px;
+
+            animation: infinite linear LoadingAnim 5s;
+        }
+
+        .version {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            padding: 10px;
+            color: white;
+        }
+
+        @keyframes LoadingAnim {
+            from {
+                stroke-dasharray: 150px;
+                stroke-dashoffset: 0px;
+            }
+            
+            to {
+                stroke-dasharray: 150px;
+                stroke-dashoffset: 1500px;
+            }
+        }
+
+        #notification {
+            position: absolute;
+
+            width: 100%;
+            min-height: 40px;
+
+            top: 0;
+            padding: 8px;
+            box-sizing: border-box;
+
+            background-color: rgb(89, 129, 214);
+            color: white;
+        }
+
+        #notification.error {
+            background-color: rgb(255, 117, 117);
+        }
+
+        #notification .cls {
+            position: absolute;
+
+            right: 0;
+
+            padding-right: 8px;
+
+            cursor: pointer;
+        }
+
+        #notification #innerText {
+            width: 95%;
+
+            overflow-wrap: break-word;
+        }
+        #notification.hidden,
+        #loadingSpin.hidden {
+            display: none;
+        }
+
+        #logo {
+            position: absolute;
+
+            width: 60%;
+
+            top: 10px;
+        }
+
+        #links {
+            position: absolute;
+            color: white;
+
+            display: flex;
+            flex-direction: column;
+            justify-content: left;
+            align-items: left;
+
+            font-size: 14px;
+
+            bottom: 0;
+            left: 0;
+            padding: 10px;
+        }
+
+        a {
+            text-decoration: none;
+        }
+        a, a:visited, a:focus, a:hover, a:active {
+            color: white;
+        }
+        a:hover {
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        #btn {
+            position: absolute;
+            width: 235px;
+            height: 235px;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            background-color: rgba(255, 255, 255, 0.425);
+            backdrop-filter: blur(50px);
+            -webkit-backdrop-filter: blur(50px);
+
+            Color: white;
+
+            border-radius: 100%;
+
+            cursor: pointer;
+        }
+
+        #btn.hidden {
+            left: -100000px;
+        }
+    </style>
+</head>
+<body>
+    <img id="logo" src="https://akatsuki.pw/static/logos/logo.png">
+
+    <div id="notification" class="hidden">
+        <div class="cls" onclick="closeNotification()">X</div>
+        <div id="innerText"></div>
+    </div>
+
+    <div id="btn" onclick="beginSwitch()">
+        Click to Activate
+    </div>
+
+    <div id="links">
+        <a onclick="invokeNative('open_browser', ['https:\/\/akatsuki.pw'])">Website</a>
+        <a onclick="invokeNative('open_browser', ['https:\/\/discord.gg/akatsuki'])">Discord</a>
+        <a onclick="invokeNative('open_browser', ['https:\/\/akatsuki.pw/doc/tos'])">Terms of Service</a>
+    </div>
+
+    <div id="loadingSpin" class="hidden">
+        <p id="status"></p>
+
+        <svg id="loader" width="247" height="247" viewBox="0 0 247 247" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="123.5" cy="123.5" r="116.847" stroke="#FF5E5E" stroke-width="13.3064"/>
+            <circle cx="123.292" cy="123.708" r="100.838" stroke="#F2FF5E" stroke-width="6.6532"/>
+            <circle cx="123.292" cy="123.708" r="88.7786" stroke="#5EFF8B" stroke-width="3.3266"/>
+            <circle cx="123.5" cy="123.916" r="77.3434" stroke="#5EC5FF" stroke-width="1.6633"/>
+        </svg>
+    </div>
+
+    <p class="version">v1.0</p>
+
+    <script>
+        const statusText = document.getElementById("status");
+        const notificationElement = document.getElementById("notification");
+        const notificationInnerText = document.getElementById("innerText");
+        const loadingSpinElement = document.getElementById("loadingSpin");
+        const btnElement = document.getElementById("btn");
+        const states = {
+            "empty":         { s: 0,  t: ""},
+            "download_ip":   { s: 12, t: "Downloading IPs..." },
+            "download_cert": { s: 12, t: "Downloading Certificate..." },
+            "install_cert":  { s: 12, t: "Installing Certificate..." },
+            "install_ip":    { s: 12, t: "Installing IPs..." }
+        }
+        const notificationStates = {
+            "error_install_cert":  "We could not install the certificate! Please check #faq on our Discord for more information!",
+            "error_install_ip":    "We could not modify your hosts file! Please check #faq on our Discord for more information!",
+            "error_download_ip":   "We could not fetch the ips! Please check https://status.akatsuki.pw for more information or ask in #help in our discord!",
+            "error_download_cert": "We could not fetch the certificate! Please check https://status.akatsuki.pw for more information or ask in #help in our discord!",
+            "ok":                  "Switch was successful! Please make sure to restart your client."
+        }
+        let currentState = "none";
+        let isActive = false;
+
+        const closeNotification = () => {
+            notificationElement.classList.add("hidden");
+        }
+
+        const showNotification = (state) => {
+            const r_state = notificationStates[state];
+
+            notificationElement.classList.remove("hidden");
+
+            if (state.startsWith("error"))
+                notificationElement.classList.add("error");
+            else
+                notificationElement.classList.remove("error");
+
+            if (state == "ok") {
+                setState("empty");
+                btnElement.classList.remove("hidden");
+            }
+            
+            notificationInnerText.innerText = r_state;
+        }
+
+        const setState = (state) => {
+            currentState = state;
+            const r_state = states[state];
+
+            statusText.style.fontSize = r_state.s + "px";
+            statusText.innerText = r_state.t;
+        }
+
+        const invokeNative = (type, args) => {
+            if (window.external.invoke)
+                window.external.invoke(JSON.stringify({ type, args }));
+            else
+                console.log("Invoke triggered for " + type + "(" + args.join(", ") + ")")
+        }
+
+        const fetchIPs = async () => {
+            setState("download_ip");
+            
+            const ips = (await fetch("https://old.akatsuki.pw/ips.txt")).text();
+            // TODO: make a better way to handle IPs by as example include hostnames
+            // so we can use bm6.ppy.sh etc
+            return ips;
+        }
+
+        const fetchCertificate = async () => {
+            setState("download_cert");
+            
+            const certData = (await fetch("https://old.akatsuki.pw/akatsuki.crt")).text();
+            return certData;
+        }
+
+        const performSwitch = async (ip, certData) => {
+            invokeNative("perform_switch", [ip.trim(), certData, isActive.toString()]);
+        }
+
+        const callbackCheckStatus = async (_isActive) => {
+            if (!_isActive) {
+                btnElement.innerText = "Click to Activate";
+            } else {
+                btnElement.innerText = "Click to Deactivate";
+            }
+
+            isActive = _isActive;
+        }
+
+        const beginSwitch = async () => {
+            btnElement.classList.add("hidden");
+
+            const ips = await fetchIPs();
+            const cert = await fetchCertificate();
+
+            performSwitch(ips, cert);
+        }
+
+        (async () => {
+            loadingSpinElement.classList.remove("hidden");
+
+            invokeNative("check_status", []);
+        })();
+
+    </script>
+</body>
+</html>
